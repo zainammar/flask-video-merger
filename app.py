@@ -26,7 +26,7 @@ def upload():
     files = request.files.getlist('videos')
 
     if not files:
-        return jsonify({"error": "No files"}), 400
+        return jsonify({"error": "No files uploaded"}), 400
 
     clips = []
     progress = {"percent": 0, "status": "processing", "filename": ""}
@@ -38,14 +38,29 @@ def upload():
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
 
-        progress["filename"] = filename
+        # Trim values
+        start = float(request.form.get(f'start_{i}', 0))
+        end = float(request.form.get(f'end_{i}', 0))
 
         clip = VideoFileClip(filepath)
-        clips.append(clip)
 
+        if end <= 0 or end > clip.duration:
+            end = clip.duration
+
+        if start < 0:
+            start = 0
+
+        if start >= end:
+            start = 0
+            end = clip.duration
+
+        trimmed_clip = clip.subclip(start, end)
+        clips.append(trimmed_clip)
+
+        progress["filename"] = filename
         progress["percent"] = int((i + 1) / total * 50)
 
-    # ✅ Proper merge
+    # Merge
     final_clip = concatenate_videoclips(clips, method="compose")
 
     output_path = os.path.join(OUTPUT_FOLDER, 'merged_video.mp4')
@@ -58,6 +73,8 @@ def upload():
 
     for clip in clips:
         clip.close()
+
+    final_clip.close()
 
     progress["percent"] = 100
     progress["status"] = "done"

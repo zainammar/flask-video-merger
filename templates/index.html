@@ -3,7 +3,11 @@
 <head>
     <title>Video Merger</title>
     <style>
-        body { font-family: Arial; text-align: center; padding: 30px; }
+        body {
+            font-family: Arial;
+            text-align: center;
+            padding: 30px;
+        }
 
         .file-box {
             border: 2px dashed #aaa;
@@ -12,11 +16,14 @@
         }
 
         .file-item {
-            margin: 5px;
-            padding: 8px;
+            margin: 8px auto;
+            padding: 10px;
             background: #f2f2f2;
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            width: 80%;
+            border-radius: 6px;
         }
 
         .progress {
@@ -36,7 +43,14 @@
             border-radius: 10px;
         }
 
-        button { padding: 10px 20px; margin-top: 10px; }
+        button {
+            padding: 8px 15px;
+            cursor: pointer;
+        }
+
+        input[type="number"] {
+            width: 70px;
+        }
     </style>
 </head>
 <body>
@@ -58,24 +72,22 @@
 <p id="status"></p>
 
 <video id="preview" controls style="display:none; width:400px;"></video>
-<br>
-<a id="downloadBtn" style="display:none;">Download</a>
+<br><br>
+
+<a id="downloadBtn" style="display:none;" target="_blank">Download Merged Video</a>
 
 <script>
 let filesArray = [];
 
 const fileInput = document.getElementById('fileInput');
 const fileList = document.getElementById('fileList');
+const bar = document.getElementById('bar');
+const status = document.getElementById('status');
 
 fileInput.addEventListener('change', function () {
     const newFiles = Array.from(this.files);
-
-    // Append instead of replace
     filesArray = filesArray.concat(newFiles);
-
     renderList();
-
-    // Reset input so same file can be selected again
     this.value = "";
 });
 
@@ -87,7 +99,16 @@ function renderList() {
         div.className = 'file-item';
 
         div.innerHTML = `
-            ${file.name}
+            <div style="text-align:left;">
+                <b>${file.name}</b><br>
+
+                ⏱ Start:
+                <input type="number" step="0.1" min="0" id="start_${index}" value="0">
+
+                ⏱ End:
+                <input type="number" step="0.1" min="0" id="end_${index}" value="0">
+            </div>
+
             <button onclick="removeFile(${index})">❌</button>
         `;
 
@@ -102,48 +123,53 @@ function removeFile(index) {
 
 function startUpload() {
     if (filesArray.length === 0) {
-        alert("Select videos first!");
+        alert("Please select videos!");
         return;
     }
 
     const formData = new FormData();
-    filesArray.forEach(file => formData.append('videos', file));
+
+    filesArray.forEach((file, index) => {
+        formData.append('videos', file);
+
+        const start = document.getElementById(`start_${index}`).value || 0;
+        const end = document.getElementById(`end_${index}`).value || 0;
+
+        formData.append(`start_${index}`, start);
+        formData.append(`end_${index}`, end);
+    });
+
+    status.innerText = "Uploading & Processing...";
 
     fetch('/upload', {
         method: 'POST',
         body: formData
-    });
+    })
+    .then(res => res.json())
+    .then(data => {
+        status.innerText = "Merge Completed ✅";
 
-    trackProgress();
+        const downloadBtn = document.getElementById('downloadBtn');
+        downloadBtn.href = data.download;
+        downloadBtn.style.display = "inline-block";
+        downloadBtn.innerText = "Download Video";
+
+        trackProgress();
+    })
+    .catch(err => {
+        console.error(err);
+        status.innerText = "Error occurred ❌";
+    });
 }
 
 function trackProgress() {
-    const bar = document.getElementById('bar');
-    const status = document.getElementById('status');
-
-    const interval = setInterval(async () => {
-        const res = await fetch('/progress');
-        const data = await res.json();
-
-        bar.style.width = data.percent + "%";
-        bar.innerText = data.percent + "%";
-
-        status.innerText = "Processing: " + data.filename;
-
-        if (data.status === "done") {
-            clearInterval(interval);
-
-            status.innerText = "✅ Done!";
-
-            const video = document.getElementById('preview');
-            video.src = "/download";
-            video.style.display = "block";
-
-            const btn = document.getElementById('downloadBtn');
-            btn.href = "/download";
-            btn.style.display = "inline-block";
-            btn.innerText = "Download Video";
-        }
+    setInterval(() => {
+        fetch('/progress')
+        .then(res => res.json())
+        .then(data => {
+            bar.style.width = data.percent + "%";
+            bar.innerText = data.percent + "%";
+        });
     }, 1000);
 }
 </script>
