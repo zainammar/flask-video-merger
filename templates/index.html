@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Merger</title>
+    <style>
+        body { font-family: Arial; text-align: center; padding: 30px; }
+
+        .file-box {
+            border: 2px dashed #aaa;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .file-item {
+            margin: 5px;
+            padding: 8px;
+            background: #f2f2f2;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .progress {
+            width: 80%;
+            margin: 20px auto;
+            background: #ddd;
+            border-radius: 10px;
+        }
+
+        .bar {
+            width: 0%;
+            height: 30px;
+            background: green;
+            color: white;
+            text-align: center;
+            line-height: 30px;
+            border-radius: 10px;
+        }
+
+        button { padding: 10px 20px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<h2>🎬 Video Merger</h2>
+
+<div class="file-box">
+    <input type="file" id="fileInput" multiple>
+</div>
+
+<div id="fileList"></div>
+
+<button onclick="startUpload()">Merge Videos</button>
+
+<div class="progress">
+    <div class="bar" id="bar">0%</div>
+</div>
+
+<p id="status"></p>
+
+<video id="preview" controls style="display:none; width:400px;"></video>
+<br>
+<a id="downloadBtn" style="display:none;">Download</a>
+
+<script>
+let filesArray = [];
+
+const fileInput = document.getElementById('fileInput');
+const fileList = document.getElementById('fileList');
+
+fileInput.addEventListener('change', function () {
+    const newFiles = Array.from(this.files);
+
+    // Append instead of replace
+    filesArray = filesArray.concat(newFiles);
+
+    renderList();
+
+    // Reset input so same file can be selected again
+    this.value = "";
+});
+
+function renderList() {
+    fileList.innerHTML = "";
+
+    filesArray.forEach((file, index) => {
+        const div = document.createElement('div');
+        div.className = 'file-item';
+
+        div.innerHTML = `
+            ${file.name}
+            <button onclick="removeFile(${index})">❌</button>
+        `;
+
+        fileList.appendChild(div);
+    });
+}
+
+function removeFile(index) {
+    filesArray.splice(index, 1);
+    renderList();
+}
+
+function startUpload() {
+    if (filesArray.length === 0) {
+        alert("Select videos first!");
+        return;
+    }
+
+    const formData = new FormData();
+    filesArray.forEach(file => formData.append('videos', file));
+
+    fetch('/upload', {
+        method: 'POST',
+        body: formData
+    });
+
+    trackProgress();
+}
+
+function trackProgress() {
+    const bar = document.getElementById('bar');
+    const status = document.getElementById('status');
+
+    const interval = setInterval(async () => {
+        const res = await fetch('/progress');
+        const data = await res.json();
+
+        bar.style.width = data.percent + "%";
+        bar.innerText = data.percent + "%";
+
+        status.innerText = "Processing: " + data.filename;
+
+        if (data.status === "done") {
+            clearInterval(interval);
+
+            status.innerText = "✅ Done!";
+
+            const video = document.getElementById('preview');
+            video.src = "/download";
+            video.style.display = "block";
+
+            const btn = document.getElementById('downloadBtn');
+            btn.href = "/download";
+            btn.style.display = "inline-block";
+            btn.innerText = "Download Video";
+        }
+    }, 1000);
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,22 @@
+body {
+    font-family: Arial;
+    text-align: center;
+    padding: 40px;
+}
+
+.progress-container {
+    width: 80%;
+    background: #ddd;
+    margin: 20px auto;
+    border-radius: 10px;
+}
+
+#progressBar {
+    width: 0%;
+    height: 30px;
+    background: green;
+    color: white;
+    text-align: center;
+    line-height: 30px;
+    border-radius: 10px;
+}
